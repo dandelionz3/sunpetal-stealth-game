@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SUNPETAL — a garden heist</title>
+<style>
+  :root {
+    --ink: #23402b;
+    --gold: #e8b93f;
+    --red: #d84a3a;
+    --amber: #e39a34;
+    --green: #57b06a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1a12; }
+  body {
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    color: var(--ink);
+    display: grid;
+    place-items: center;
+  }
+  #stage {
+    position: relative;
+    width: min(100vw, 177.78vh);
+    height: min(56.25vw, 100vh);
+    overflow: hidden;
+    box-shadow: 0 24px 80px rgba(0, 0, 0, 0.55);
+  }
+  #game { display: block; width: 100%; height: 100%; }
+
+  #hud {
+    position: absolute; inset: 0; pointer-events: none;
+    padding: 2.1% 2.2%;
+    display: flex; flex-direction: column; justify-content: space-between;
+    transition: opacity 160ms ease;
+  }
+  #hud.hidden { opacity: 0; }
+  .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+  .panel {
+    background: rgba(255, 249, 234, 0.9);
+    border: 1px solid rgba(63, 96, 58, 0.22);
+    border-radius: 16px;
+    padding: 10px 14px;
+    box-shadow: 0 6px 18px rgba(20, 40, 22, 0.18);
+  }
+  .left { min-width: 300px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .tag {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+    padding: 3px 8px; border-radius: 999px; color: #fff; min-width: 74px; text-align: center;
+  }
+  .tag.green { background: var(--green); }
+  .tag.amber { background: var(--amber); }
+  .tag.red { background: var(--red); }
+  .meter {
+    position: relative; flex: 1; height: 12px; border-radius: 999px;
+    background: rgba(47, 107, 61, 0.14); overflow: hidden;
+  }
+  .fill { display: block; height: 100%; width: 0%; border-radius: 999px; transition: width 90ms linear, background 160ms; }
+  .fill.green { background: linear-gradient(90deg, #7acb84, #3f9c58); }
+  .fill.amber { background: linear-gradient(90deg, #f2c14e, #e08a2c); }
+  .fill.red { background: linear-gradient(90deg, #f0715f, #c93426); }
+  .objective { margin-top: 7px; font-size: 13px; font-weight: 600; color: #3c5f3f; }
+  .right { display: flex; gap: 8px; align-items: stretch; }
+  .chip {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    min-width: 62px; padding: 7px 10px; border-radius: 14px;
+    background: rgba(255, 249, 234, 0.9); border: 1px solid rgba(63, 96, 58, 0.22);
+    box-shadow: 0 6px 18px rgba(20, 40, 22, 0.16);
+  }
+  .chip .label { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: #6c8468; }
+  .chip b { font-size: 16px; color: #2c4d33; }
+  .chip b.empty { color: #b04a3c; }
+  #seeds { display: flex; gap: 4px; margin-top: 4px; }
+  .seed-slot {
+    width: 11px; height: 15px; border-radius: 50% / 60% 60% 40% 40%;
+    background: rgba(70, 100, 66, 0.15); border: 1px solid rgba(70, 100, 66, 0.35);
+  }
+  .seed-slot.got { background: linear-gradient(160deg, #ffe28a, #d9a52f); border-color: #b78a26; }
+  .petal-dot {
+    width: 18px; height: 18px; margin-top: 3px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 50%, #fff6c4 0 26%, #e7dfc6 27% 100%);
+    border: 1px solid rgba(120, 110, 70, 0.3);
+  }
+  .petal-dot.got {
+    background: radial-gradient(circle at 50% 50%, #fff4b0 0 24%, #ffcf4a 25% 60%, #f0a92c 61% 100%);
+    box-shadow: 0 0 12px rgba(255, 208, 74, 0.85);
+  }
+  #timer { font-size: 17px; font-variant-numeric: tabular-nums; color: #2c4d33; }
+  .noise {
+    align-self: flex-start; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+    padding: 5px 10px; border-radius: 999px; background: rgba(24, 46, 28, 0.55); color: #e9f2d8;
+  }
+  .noise.soft { background: rgba(60, 96, 52, 0.6); }
+  .noise.loud { background: rgba(196, 74, 52, 0.82); color: #fff4e6; }
+
+  #wordmark {
+    position: absolute; left: 4.2%; top: 13%; pointer-events: none; display: none;
+    text-shadow: 0 3px 0 rgba(255, 255, 255, 0.3), 0 12px 30px rgba(10, 30, 16, 0.5);
+  }
+  #wordmark.show { display: block; }
+  #wordmark h1 {
+    margin: 0; font-family: Georgia, "Times New Roman", serif; font-size: 76px;
+    letter-spacing: 0.16em; color: #fffbe6; text-indent: 0.16em; line-height: 1;
+  }
+  #wordmark p { margin: 8px 0 0; font-size: 13px; letter-spacing: 0.34em; text-transform: uppercase; color: #fff4cd; }
+  #wordmark .tagline {
+    margin-top: 14px; font-size: 14px; line-height: 1.5; letter-spacing: 0.02em;
+    text-transform: none; color: #f4ffe4; max-width: 380px; text-shadow: 0 2px 8px rgba(10, 30, 16, 0.75);
+  }
+
+  #startbar {
+    position: absolute; left: 50%; bottom: 4.5%; transform: translateX(-50%);
+    display: none; align-items: center; gap: 18px;
+    background: rgba(255, 250, 236, 0.93); border: 1px solid rgba(63, 96, 58, 0.25);
+    border-radius: 999px; padding: 9px 12px 9px 24px;
+    box-shadow: 0 14px 34px rgba(12, 34, 18, 0.32);
+  }
+  #startbar.show { display: flex; }
+  #startbar .keys { margin: 0; font-size: 11.5px; letter-spacing: 0.05em; color: #5b7255; white-space: nowrap; }
+  #startbar .keys b { color: #2b4f32; }
+
+  .screen {
+    position: absolute; inset: 0; display: none; place-items: center;
+    background: radial-gradient(ellipse at 50% 45%, rgba(12, 30, 18, 0.18), rgba(10, 26, 16, 0.66));
+    padding: 4%;
+  }
+  .screen.show { display: grid; }
+  .card {
+    width: min(560px, 92%); max-height: 94%; overflow: auto;
+    background: linear-gradient(180deg, rgba(255, 251, 238, 0.97), rgba(252, 244, 224, 0.97));
+    border: 1px solid rgba(70, 100, 60, 0.28);
+    border-radius: 26px; padding: 30px 40px 26px;
+    box-shadow: 0 26px 70px rgba(10, 28, 16, 0.45), inset 0 1px 0 #fff;
+    text-align: center;
+  }
+  .eyebrow { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.28em; text-transform: uppercase; color: #7a8f6c; }
+  h2 { margin: 4px 0 6px; font-family: Georgia, serif; font-size: 40px; color: #2f6b3d; }
+  .lede { margin: 10px auto 0; max-width: 440px; font-size: 14px; line-height: 1.5; color: #49624a; }
+  .keys { margin: 8px 0 0; font-size: 12px; letter-spacing: 0.08em; color: #7c8a63; }
+  .stats { margin: 8px 0 0; font-size: 14px; color: #5a7157; font-variant-numeric: tabular-nums; }
+  .rating {
+    margin: 2px 0 -2px; font-family: Georgia, serif; font-size: 80px; line-height: 1;
+    color: #e0a92f; text-shadow: 0 3px 0 #f7e8b8;
+  }
+  .best { margin: 12px 0 0; font-size: 12px; letter-spacing: 0.06em; color: #7c8a63; }
+  button {
+    font: inherit; font-weight: 700; letter-spacing: 0.08em;
+    padding: 12px 32px; border-radius: 999px; border: 0; cursor: pointer;
+    color: #fffdf4; background: linear-gradient(180deg, #4b9157, #2f6b3d);
+    box-shadow: 0 6px 0 #23512e, 0 10px 22px rgba(24, 60, 32, 0.3);
+    transition: transform 90ms ease, box-shadow 90ms ease;
+  }
+  button:hover { transform: translateY(-1px); }
+  button:active { transform: translateY(3px); box-shadow: 0 2px 0 #23512e; }
+  #screen-action { margin-top: 18px; }
+  #start-btn { padding: 11px 26px; box-shadow: 0 4px 0 #23512e, 0 8px 18px rgba(24, 60, 32, 0.28); }
+  .hint { margin: 12px 0 0; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase; color: #8a977b; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="game" width="1280" height="720" aria-label="SUNPETAL: Wren crosses a sunny garden, hiding from four gardeners to reach the Sunpetal flower and the gate"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="top">
+      <div class="panel left">
+        <div class="row">
+          <span id="suspicion-label" class="tag green">HIDDEN</span>
+          <span class="meter"><span id="suspicion-fill" class="fill green"></span></span>
+        </div>
+        <div id="objective" class="objective">Reach the Sunpetal bed</div>
+      </div>
+      <div class="right">
+        <div class="chip"><span class="label">seeds</span><span id="seeds"></span></div>
+        <div class="chip"><span class="label">pebbles</span><b id="pebbles">5</b></div>
+        <div class="chip"><span class="label">sunpetal</span><span id="petal" class="petal-dot"></span></div>
+        <div class="chip"><span class="label">time</span><span id="timer">0:00</span></div>
+      </div>
+    </div>
+    <div id="noise" class="noise still">quiet</div>
+  </div>
+
+  <div id="wordmark">
+    <h1>SUNPETAL</h1>
+    <p>a garden heist</p>
+    <div class="tagline">Wren has one morning to slip past four gardeners, lift the last Sunpetal and reach the gate unseen.</div>
+  </div>
+
+  <div id="startbar">
+    <p class="keys"><b>A/D</b> walk &middot; <b>S</b> crouch &middot; <b>Shift</b> sprint &middot; <b>Click</b> throw pebble &middot; <b>P</b> pause</p>
+    <button id="start-btn">Enter the garden</button>
+  </div>
+
+  <div id="screen" class="screen">
+    <div class="card">
+      <div id="screen-body"></div>
+      <button id="screen-action">Enter the garden</button>
+      <p id="hint" class="hint">Enter or click to begin &middot; P pause &middot; M mute</p>
+    </div>
+  </div>
+
+  <p id="status" role="status" aria-live="polite"></p>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
